@@ -1,5 +1,6 @@
 #include "ui.h"
 #include "encoder.h"
+#include "uart.h"
 
 /*==============================================================================================
   Rutina para navegar en la pantalla principal que agrupa todos los parametros de configuracion, 
@@ -43,6 +44,39 @@ void ppalConfigScreen(u8 pageNumber){
 
 
 /*==============================================================================================
+  Rutina para comunicar via serial con el uC externo, se indica el parametro (parameterReg) que
+  se modifico y el valor del mismo (num)
+	==============================================================================================*/
+void sendMsgByUart2(u16 parameterReg, num){
+	u8 buf[6];
+	switch(parameterReg){
+		case BRILLO_REG:{
+			buf[0]='B';
+		}break;
+		case PRESION_REG:{
+			buf[0]='P';
+		}break;
+		case TIEMPO_REG:{
+			buf[0]='T';
+		}break;
+		case HUMEDAD_REG:{
+			buf[0]='H';
+		}break;
+		default:{
+			buf[0]='S';
+		}
+			break;
+	}
+	buf[1]='-';
+	buf[2]='>';
+	buf[3]=(u8)((num/10)+ '0');
+	buf[4]=(u8)((num%10)+ '0');
+	buf[5]='\n';
+	Uart2_Sendstring(buf, 6);
+}
+
+
+/*==============================================================================================
   Rutina para cambiar el valor de los parametros de configuracion, el parametro a configurar se 
   pasa como argumento, al igual que los valores limite, el incremento y pagina relacionada
 	==============================================================================================*/
@@ -63,7 +97,8 @@ void configScreen(u8 pageNumber, u16 parameterReg, parameterMin, parameterMax, p
 			}
 		}break;
 		case 3:{//Presion simple de la perilla
-				pageNumber=pageNumber-5;
+			pageNumber=pageNumber-5;
+			sendMsgByUart2(parameterReg, num);
 		}break;
 		default:
 			break;
@@ -85,7 +120,8 @@ void briefScreens(u8 pageNumber){
 				if(pageNumber==6){
 					pageNumber=1;
 				}else{
-					pageNumber=50;
+					pageNumber=50;//Se detiene la terapia
+					sendMsgByUart2(pageNumber, 0);
 				}
 		}break;
 		default:
@@ -151,6 +187,9 @@ void initScreen(u16 pageNumber){
 			}
 		}break;
 		case 3:{//Presion simple de la perilla
+			if(pageNumber==50){//Se va a iniciar la terapia
+				sendMsgByUart2(pageNumber, 1);
+			}
 			pageNumber-=10;
 		}break;
 		default:
