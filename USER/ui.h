@@ -2,6 +2,10 @@
 #define __PAGE_H__
 #include "sys.h"
 
+#define FUGAS_REG 1001
+#define RUNNING 1005//Como tal no es un registro que se use en la pantalla
+										//Es solo para indicar al uC externo de que corra la terapia
+
 #define BRILLO_PAG 5
 #define BRILLO_REG 0x0082//0x1000
 #define BRILLO_MIN 0x0000//0

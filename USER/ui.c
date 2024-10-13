@@ -2,6 +2,32 @@
 #include "encoder.h"
 #include "uart.h"
 
+/*Arreglo predefinido para enviar informacion al uC externo cuando se presione la perilla, las 
+  posiciones 4 y 5 se llenaran con el numero del registro que se modifico y las 7 y 8 con el valor 
+	que tomo dicho registro */
+u8 sendingBuffer[9]={0x5A, 0xA5, 0x06, 0x83, 0x00, 0x00, 0x01, 0x00, 0x00};
+
+
+/*==============================================================================================
+  Rutina para comunicar via serial con el uC externo, se indica el parametro (parameterReg) que
+  se modifico y el valor del mismo (num)
+  El arreglo de byte enviado es el mismo a cuando se ejecuta una lectura en la pantalla por
+  medio del comando 83
+	==============================================================================================*/
+void sendMsgByUart2(u16 parameterReg, num){
+	//Se almacena el numero del registro
+	sendingBuffer[4] = (parameterReg >> 8) & 0xFF; // Byte alto
+  sendingBuffer[5] = parameterReg & 0xFF;        // Byte bajo
+
+	//Se almacena valor que tomo
+	sendingBuffer[7] = (num >> 8) & 0xFF; // Byte alto
+  sendingBuffer[8] = num & 0xFF;        // Byte bajo
+	
+	//Se envia la secuencia
+	Uart2_Sendstring(sendingBuffer, 9);
+}
+
+
 /*==============================================================================================
   Rutina para navegar en la pantalla principal que agrupa todos los parametros de configuracion, 
   inicialmente era la pantalla inicial de la interfaz
@@ -29,6 +55,9 @@ void ppalConfigScreen(u8 pageNumber){
 				pageNumber=10;
 			}else{
 				pageNumber=pageNumber+5;
+				if(pageNumber==6){//Se inicia prueba de fugas
+					sendMsgByUart2(FUGAS_REG, 1);
+				}
 			}
 		}break;
 		case 4:{//Presion sostenida
@@ -41,39 +70,6 @@ void ppalConfigScreen(u8 pageNumber){
 	}
 	Page_Change(pageNumber);
 }	
-
-
-/*==============================================================================================
-  Rutina para comunicar via serial con el uC externo, se indica el parametro (parameterReg) que
-  se modifico y el valor del mismo (num)
-	==============================================================================================*/
-void sendMsgByUart2(u16 parameterReg, num){
-	u8 buf[6];
-	switch(parameterReg){
-		case BRILLO_REG:{
-			buf[0]='B';
-		}break;
-		case PRESION_REG:{
-			buf[0]='P';
-		}break;
-		case TIEMPO_REG:{
-			buf[0]='T';
-		}break;
-		case HUMEDAD_REG:{
-			buf[0]='H';
-		}break;
-		default:{
-			buf[0]='S';
-		}
-			break;
-	}
-	buf[1]='-';
-	buf[2]='>';
-	buf[3]=(u8)((num/10)+ '0');
-	buf[4]=(u8)((num%10)+ '0');
-	buf[5]='\n';
-	Uart2_Sendstring(buf, 6);
-}
 
 
 /*==============================================================================================
@@ -118,10 +114,11 @@ void briefScreens(u8 pageNumber){
 	switch(state){
 		case 3:{//Presion simple de la perilla
 				if(pageNumber==6){
-					pageNumber=1;
+					pageNumber=1;//Se detiene prueba de fugas
+					sendMsgByUart2(FUGAS_REG, 0);
 				}else{
 					pageNumber=50;//Se detiene la terapia
-					sendMsgByUart2(pageNumber, 0);
+					sendMsgByUart2(RUNNING, 0);
 				}
 		}break;
 		default:
@@ -188,7 +185,7 @@ void initScreen(u16 pageNumber){
 		}break;
 		case 3:{//Presion simple de la perilla
 			if(pageNumber==50){//Se va a iniciar la terapia
-				sendMsgByUart2(pageNumber, 1);
+				sendMsgByUart2(RUNNING, 1);
 			}
 			pageNumber-=10;
 		}break;
