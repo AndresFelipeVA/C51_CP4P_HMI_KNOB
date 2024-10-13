@@ -2,8 +2,8 @@
 #define __PAGE_H__
 #include "sys.h"
 
-#define FUGAS_REG 1001
-#define RUNNING 1005//Como tal no es un registro que se use en la pantalla
+#define FUGAS_REG 0x1001
+#define RUNNING 0x1005//Como tal no es un registro que se use en la pantalla
 										//Es solo para indicar al uC externo de que corra la terapia
 
 #define BRILLO_PAG 5
