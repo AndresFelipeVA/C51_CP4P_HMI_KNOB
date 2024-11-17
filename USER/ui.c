@@ -7,6 +7,8 @@
 	que tomo dicho registro */
 u8 sendingBuffer[9]={0x5A, 0xA5, 0x06, 0x83, 0x00, 0x00, 0x01, 0x00, 0x00};
 
+u16 state;//Almacena de manera global el estado de la perilla
+
 
 /*==============================================================================================
   Rutina para comunicar via serial con el uC externo, se indica el parametro (parameterReg) que
@@ -32,9 +34,7 @@ void sendMsgByUart2(u16 parameterReg, num){
   Rutina para navegar en la pantalla principal que agrupa todos los parametros de configuracion, 
   inicialmente era la pantalla inicial de la interfaz
 	==============================================================================================*/
-void ppalConfigScreen(u8 pageNumber){
-	u16 state;
-	state=Encoder_recevie();
+u16 ppalConfigScreen(u8 pageNumber){
 	switch(state){
 		case 1:{//Giro en direccion de las manecillas del reloj-Contrario a perilla pequena
 			if(pageNumber==4){
@@ -68,7 +68,7 @@ void ppalConfigScreen(u8 pageNumber){
 		default:
 			break;
 	}
-	Page_Change(pageNumber);
+	return pageNumber;
 }	
 
 
@@ -76,10 +76,10 @@ void ppalConfigScreen(u8 pageNumber){
   Rutina para cambiar el valor de los parametros de configuracion, el parametro a configurar se 
   pasa como argumento, al igual que los valores limite, el incremento y pagina relacionada
 	==============================================================================================*/
-void configScreen(u8 pageNumber, u16 parameterReg, parameterMin, parameterMax, parameterInc){
-	u16 state;//Deben ser de 2 Bytes ya que es el tamano del VP en DWIN
-	u16 num;//si se colocan de 1 Byte (u8) pone problemas la lectura/escritura
-	state=Encoder_recevie();
+u16 configScreen(u8 pageNumber, u16 parameterReg, parameterMin, parameterMax, parameterInc){
+	u16 num;//Deben ser de 2 Bytes ya que es el tamano del VP en DWIN
+	//si se colocan de 1 Byte (u8) pone problemas la lectura/escritura
+
 	read_dgus_vp(parameterReg,(u8*)&num,1);
 	switch(state){
 		case 1:{//Giro en direccion de las manecillas del reloj-Contrario a perilla pequena
@@ -99,8 +99,8 @@ void configScreen(u8 pageNumber, u16 parameterReg, parameterMin, parameterMax, p
 		default:
 			break;
 	}
-	write_dgus_vp(parameterReg,(u8*)&num,1);//Siempre escribe aunque no haya cambio (no hubo giro de perilla)
-	Page_Change(pageNumber);//Siempre cambia pagina aunque no haya cambio (no hubo presion de perilla)
+	write_dgus_vp(parameterReg,(u8*)&num,1);
+	return pageNumber;
 }
 
 
@@ -108,9 +108,7 @@ void configScreen(u8 pageNumber, u16 parameterReg, parameterMin, parameterMax, p
   Rutina a la que solo deberia entrar cuando se encuentre en la pantalla de resumen (pagina 40)
   en la que se mantiene el CPAP durante su funcionamiento normal o en la de fugas (pagina 6) 
 	==============================================================================================*/
-void briefScreens(u8 pageNumber){
-	u16 state;
-	state=Encoder_recevie();
+u16 briefScreens(u8 pageNumber){
 	switch(state){
 		case 3:{//Presion simple de la perilla
 				if(pageNumber==6){
@@ -124,16 +122,14 @@ void briefScreens(u8 pageNumber){
 		default:
 			break;
 	}
-	Page_Change(pageNumber);
+	return pageNumber;
 }	
 
 
 /*==============================================================================================
   Rutina para navegar en la pantalla de reportes
 	==============================================================================================*/
-void reportScreen(u16 pageNumber){
-	u16 state;
-	state=Encoder_recevie();
+u16 reportScreen(u16 pageNumber){
 	switch(state){
 		case 1:{//Giro en direccion de las manecillas del reloj-Contrario a perilla pequena
 			if(pageNumber==23){
@@ -157,7 +153,7 @@ void reportScreen(u16 pageNumber){
 		default:
 			break;
 	}
-	Page_Change(pageNumber);
+	return pageNumber;
 }	
 
 
@@ -165,9 +161,7 @@ void reportScreen(u16 pageNumber){
   Rutina para navegar en la pantalla inicial de tres opciones:
       Iniciar terapia, Configuracion y reportes
 	==============================================================================================*/
-void initScreen(u16 pageNumber){
-	u16 state;
-	state=Encoder_recevie();
+u16 initScreen(u16 pageNumber){
 	switch(state){
 		case 1:{//Giro en direccion de las manecillas del reloj-Contrario a perilla pequena
 			if(pageNumber==50){
@@ -192,7 +186,7 @@ void initScreen(u16 pageNumber){
 		default:
 			break;
 	}
-	Page_Change(pageNumber);
+	return pageNumber;
 }	
 
 
@@ -201,23 +195,27 @@ void initScreen(u16 pageNumber){
   llama a las otras rutinas
 	==============================================================================================*/
 void encoder_page_change(){
-	u16 pageNumber;
-	pageNumber=GetPageID();
-	if( pageNumber>=0 && pageNumber<=4){
-		ppalConfigScreen(pageNumber);
-	}else if( pageNumber>=20 && pageNumber<=23){
-		reportScreen(pageNumber);
-	}else if( pageNumber==50 || pageNumber==10 || pageNumber==30){
-		initScreen(pageNumber);
-	}else if(pageNumber==BRILLO_PAG){
-		configScreen(BRILLO_PAG, BRILLO_REG, BRILLO_MIN, BRILLO_MAX, BRILLO_INC);
-	}else if(pageNumber==PRESION_PAG){
-		configScreen(PRESION_PAG, PRESION_REG, PRESION_MIN, PRESION_MAX, PRESION_INC);
-	}else if(pageNumber==TIEMPO_PAG){
-		configScreen(TIEMPO_PAG, TIEMPO_REG, TIEMPO_MIN, TIEMPO_MAX, TIEMPO_INC);
-	}else if(pageNumber==HUMEDAD_PAG){
-		configScreen(HUMEDAD_PAG, HUMEDAD_REG, HUMEDAD_MIN, HUMEDAD_MAX, HUMEDAD_INC);
-	}else{
-		briefScreens(pageNumber);
+	u16 pageNumber, newPage;
+	state=Encoder_recevie();
+	if(state!=0){	
+		pageNumber=GetPageID();
+		if( pageNumber>=0 && pageNumber<=4){
+			newPage=ppalConfigScreen(pageNumber);
+		}else if( pageNumber>=20 && pageNumber<=23){
+			newPage=reportScreen(pageNumber);
+		}else if( pageNumber==50 || pageNumber==10 || pageNumber==30){
+			newPage=initScreen(pageNumber);
+		}else if(pageNumber==BRILLO_PAG){
+			newPage=configScreen(BRILLO_PAG, BRILLO_REG, BRILLO_MIN, BRILLO_MAX, BRILLO_INC);
+		}else if(pageNumber==PRESION_PAG){
+			newPage=configScreen(PRESION_PAG, PRESION_REG, PRESION_MIN, PRESION_MAX, PRESION_INC);
+		}else if(pageNumber==TIEMPO_PAG){
+			newPage=configScreen(TIEMPO_PAG, TIEMPO_REG, TIEMPO_MIN, TIEMPO_MAX, TIEMPO_INC);
+		}else if(pageNumber==HUMEDAD_PAG){
+			newPage=configScreen(HUMEDAD_PAG, HUMEDAD_REG, HUMEDAD_MIN, HUMEDAD_MAX, HUMEDAD_INC);
+		}else{
+			newPage=briefScreens(pageNumber);
+		}
+		Page_Change(newPage);
 	}
 }
